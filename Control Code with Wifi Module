@@ -1,0 +1,85 @@
+// Include necessary libraries for WiFi and web server functionalities
+#include <ESP8266WiFi.h>
+#include <ESP8266WebServer.h>
+#include <ESP8266HTTPUpdateServer.h>
+#include "FS.h"
+
+// Define global variables and default values for servo control and WiFi management
+ESP8266WebServer WebServer(80);           // Initialize the WebServer on port 80
+ESP8266HTTPUpdateServer httpUpdater;      // Initialize the HTTP updater for firmware updates
+
+bool autoRunEnabled = false;              // Flag to determine if the arm should run automatically
+char axisLabels[4] = {'X', 'Y', 'Z', 'E'};  // Labels for each motor axis
+int motorPins[4] = {D2, D3, D0, D8};        // Microcontroller pins connected to motors
+int currentAngle[4] = {90, 90, 180, 90};    // Current angle of each motor
+int currentPulseWidth[4] = {1500, 1500, 2500, 1500}; // Current pulse width corresponding to the angle
+
+// Define the angle and pulse width ranges for each motor
+int minAngles[4] = {0, 60, 90, 60};
+int maxAngles[4] = {180, 180, 180, 110};
+int minPulseWidths[4] = {500, 1150, 1500, 1150};
+int maxPulseWidths[4] = {2500, 2500, 2500, 1700};
+
+// Define utility functions for controlling servos and managing server requests
+void setup() {
+    Serial.begin(115200); // Initialize serial communication at 115200 baud rate
+    setupWiFi(); // Function to setup WiFi connection
+    configureWebServer(); // Function to configure and start the Web server
+}
+
+void loop() {
+    handleClientRequests(); // Continuously handle client requests via HTTP
+    handleSerialCommands(); // Check and execute commands from serial input
+}
+
+void setupWiFi() {
+    WiFi.mode(WIFI_STA); // Set WiFi to station mode
+    WiFi.begin("MYHOME", "12345678"); // Connect to WiFi network
+    Serial.println("Connecting to WiFi...");
+    waitForConnection(); // Wait for WiFi connection to establish
+}
+
+void waitForConnection() {
+    for (int i = 0; i < 15; i++) { // Attempt to connect for 15 seconds
+        if (WiFi.status() == WL_CONNECTED) {
+            Serial.println("Connected to WiFi");
+            break;
+        }
+        delay(1000); // Wait for 1 second before retrying
+    }
+}
+
+void configureWebServer() {
+    WebServer.on("/", HTTP_GET, handleRootRequest); // Setup route for root document
+    WebServer.on("/command", HTTP_GET, handleCommand); // Setup route for command processing
+    WebServer.on("/update", HTTP_POST, []() { WebServer.send(200); }, handleUpdate); // Setup route for firmware updates
+    WebServer.begin(); // Start the web server
+    Serial.println("Web server started");
+}
+
+void handleRootRequest() {
+    WebServer.send(200, "text/plain", "Welcome to the robotic arm controller!");
+}
+
+void handleCommand() {
+    if (WebServer.hasArg("command")) {
+        String command = WebServer.arg("command");
+        executeCommand(command); // Function to parse and execute commands
+    }
+}
+
+void handleUpdate() {
+    // Placeholder for firmware update handling
+}
+
+void executeCommand(String command) {
+    // Implementation of command parsing and execution
+    Serial.println("Executing command: " + command);
+}
+
+void handleSerialCommands() {
+    if (Serial.available() > 0) {
+        String command = Serial.readString();
+        executeCommand(command);
+    }
+}
